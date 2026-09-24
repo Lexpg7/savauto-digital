@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+**/node_modules/
+
+# Build output
+dist/
+
+# Environment files (секреты)
+.env
+.env.local
+.env.*.local
+backend/.env
+bot/.env
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Logs
+*.log
+npm-debug.log*
+
+# Docker volumes
+postgres_data/
+redis_data/
+
+# Temporary
+tmp/
+temp/
+*.tmp
+.next/
+build/

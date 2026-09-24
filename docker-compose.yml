@@ -1,0 +1,89 @@
+services:
+  # ============================================
+  # POSTGRESQL DATABASE
+  # ============================================
+  postgres:
+    image: postgres:15-alpine
+    container_name: savauto-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: savauto
+      POSTGRES_PASSWORD: savauto_password
+      POSTGRES_DB: savauto
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/src/db/schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U savauto"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================
+  # REDIS (Cache + Queue)
+  # ============================================
+  redis:
+    image: redis:7-alpine
+    container_name: savauto-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================
+  # BACKEND API (Node.js + Express)
+  # ============================================
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: savauto-backend
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: production
+      PORT: 4000
+      DATABASE_URL: postgresql://savauto:savauto_password@postgres:5432/savauto
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: ${JWT_SECRET:-change-this-in-production-very-long-secret}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      CORS_ORIGINS: http://localhost:3000,http://localhost:5173
+      FIRST_ADMIN_EMAIL: ${FIRST_ADMIN_EMAIL:-admin@savauto.ru}
+      FIRST_ADMIN_PASSWORD: ${FIRST_ADMIN_PASSWORD:-ChangeThisPassword123!}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ============================================
+  # TELEGRAM BOT
+  # ============================================
+  bot:
+    build:
+      context: ./bot
+      dockerfile: Dockerfile
+    container_name: savauto-bot
+    ports:
+      - "3001:3001"
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      MINI_APP_URL: http://localhost:3000/app
+      PORT: 3001
+      ADMIN_TELEGRAM_ID: ${ADMIN_TELEGRAM_ID:-}
+    depends_on:
+      - backend
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
